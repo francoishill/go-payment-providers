@@ -7,7 +7,7 @@ import (
 )
 
 func (this *payfastProvider) VerifyFromGatewayTheySentTheRequest(remoteUserAgent string) {
-	host := this.getRemoteHost()
+	host := this.payfastContext.GetRemoteHost()
 	url := fmt.Sprintf("https://%s/eng/query/validate", host)
 
 	postBodyBytes := []byte(this.extractedData.ParamStringForRemoteVerify)

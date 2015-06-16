@@ -72,7 +72,7 @@ func (this *payfastProvider) VerifySignatureOfPostData(postDataInCorrectOrder Sl
 	//Before we add the passphrase
 	queryWithoutPassphraseOrSignature := keyValsExcludingSignature.CombineIntoSingleString(false)
 
-	passPhrase := this.passPhrase
+	passPhrase := this.payfastContext.GetPassphrase()
 	if passPhrase != "" {
 		keyValsExcludingSignature = append(keyValsExcludingSignature, &PostKeyValue{Key: "passphrase", Value: ValueString(passPhrase)})
 	}
