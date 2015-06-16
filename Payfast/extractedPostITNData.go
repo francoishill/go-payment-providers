@@ -1,7 +1,7 @@
 package Payfast
 
 type extractedPostITNData struct {
-	SaleId                     int64   //m_payment_id
+	SaleId                     string  //m_payment_id
 	MerchantId                 string  //merchant_id
 	PayfastPaymentId           string  //pf_payment_id
 	PaymentStatus              string  //payment_status

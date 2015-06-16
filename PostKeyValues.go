@@ -6,30 +6,30 @@ import (
 	"strings"
 )
 
-type PostKeyValues struct {
+type PostKeyValue struct {
 	Key   string
 	Value ValueString
 }
 
-func readKeyValuePairsInCorrectOrderFromPostBody(requestPostBody []byte) SliceOfPostKeyValues {
-	finalKeyVals := []*PostKeyValues{}
+func readKeyValuePairsInCorrectOrderFromPostBody(requestPostBody []byte) SliceOfPostKeyValue {
+	finalKeyVals := []*PostKeyValue{}
 
 	requestBodyString := string(requestPostBody)
 	keyValPairs := strings.Split(requestBodyString, "&")
 	for _, keyAndVal := range keyValPairs {
 		tmpSplit := strings.Split(keyAndVal, "=")
-		finalKeyVals = append(finalKeyVals, &PostKeyValues{
+		finalKeyVals = append(finalKeyVals, &PostKeyValue{
 			Key:   tmpSplit[0],
 			Value: ValueString(tmpSplit[1]),
 		})
 	}
 
-	return SliceOfPostKeyValues(finalKeyVals)
+	return SliceOfPostKeyValue(finalKeyVals)
 }
 
-type SliceOfPostKeyValues []*PostKeyValues
+type SliceOfPostKeyValue []*PostKeyValue
 
-func (this SliceOfPostKeyValues) CombineIntoSingleString(mustEscape bool) string {
+func (this SliceOfPostKeyValue) CombineIntoSingleString(mustEscape bool) string {
 	keyValCombinedList := []string{}
 	for _, keyVal := range this {
 		var value string

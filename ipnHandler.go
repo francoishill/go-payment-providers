@@ -40,7 +40,27 @@ func (this *ipnHandler) verifyValidIPOfRequest(remoteIP string) {
 	}
 }
 
-func (this *ipnHandler) verifySignatureOfPostData(requestPostBody []byte) {
+func (this *ipnHandler) verifySignatureOfPostData(requestPostBody []byte, remoteIp string) {
 	allKeyValuePairsInCorrectOrder := readKeyValuePairsInCorrectOrderFromPostBody(requestPostBody)
-	this.paymentProvider.VerifySignatureOfPostData(allKeyValuePairsInCorrectOrder)
+	this.paymentProvider.VerifySignatureOfPostData(allKeyValuePairsInCorrectOrder, remoteIp)
+}
+
+func (this *ipnHandler) verifySaleDataMatch() {
+	this.paymentProvider.VerifySaleDataMatch()
+}
+
+func (this *ipnHandler) verifyMerchantData() {
+	this.paymentProvider.VerifyMerchantData()
+}
+
+func (this *ipnHandler) verifyFromGatewayTheySentTheRequest(remoteUserAgent string) {
+	this.paymentProvider.VerifyFromGatewayTheySentTheRequest(remoteUserAgent)
+}
+
+func (this *ipnHandler) checkSaleAlreadyAuthorized() bool {
+	return this.paymentProvider.CheckSaleAlreadyAuthorized()
+}
+
+func (this *ipnHandler) updateSale(eventHandler IIPNEventHandler) {
+	this.paymentProvider.UpdateSale(eventHandler)
 }

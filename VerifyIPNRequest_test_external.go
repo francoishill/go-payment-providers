@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func DoTestVerifyValidIPOfRequest(t *testing.T, paymentProvider IPaymentProvider, remoteValidIP, remoteInvalidIP string) {
-	Convey("Verifying IPN request", t, func() {
+func DoTestVerifyValidIPOfRequest(t *testing.T, paymentProvider IPaymentProvider, remoteValidIP, remoteInvalidIP string, invalidExpectedPanic interface{}) {
+	Convey("verifyValidIPOfRequest", t, func() {
 		handler := createIpnHandler(paymentProvider)
 
 		So(
@@ -21,28 +21,101 @@ func DoTestVerifyValidIPOfRequest(t *testing.T, paymentProvider IPaymentProvider
 				handler.verifyValidIPOfRequest(remoteInvalidIP)
 			},
 			ShouldPanicWith,
-			"Invalid remote IP '"+remoteInvalidIP+"'",
+			invalidExpectedPanic,
 		)
 	})
 }
 
-func DoTestVerifySignatureOfPostData(t *testing.T, paymentProvider IPaymentProvider, remoteValidIP, remoteInvalidIP string) {
-	Convey("Verifying IPN request", t, func() {
+func DoTestVerifySignatureOfPostData(t *testing.T, paymentProvider IPaymentProvider, remoteIp string, validRequestPostBody, invalidRequestPostBody []byte, invalidExpectedPanic interface{}) {
+	Convey("verifySignatureOfPostData", t, func() {
 		handler := createIpnHandler(paymentProvider)
 
 		So(
 			func() {
-				handler.verifySignatureOfPostData(remoteValidIP)
+				handler.verifySignatureOfPostData(validRequestPostBody, remoteIp)
 			},
 			ShouldNotPanic,
 		)
 
 		So(
 			func() {
-				handler.verifySignatureOfPostData(remoteInvalidIP)
+				handler.verifySignatureOfPostData(invalidRequestPostBody, remoteIp)
 			},
 			ShouldPanicWith,
-			"Invalid remote IP '"+remoteInvalidIP+"'",
+			invalidExpectedPanic,
 		)
+	})
+}
+
+func DoTestVerifySaleDataMatch(t *testing.T, validPaymentProvider, invalidPaymentProvider IPaymentProvider, invalidExpectedPanic interface{}) {
+	Convey("verifySaleDataMatch", t, func() {
+		Convey("Payment provider with valid sale data", func() {
+			So(
+				func() {
+					handler := createIpnHandler(validPaymentProvider)
+					handler.verifySaleDataMatch()
+				},
+				ShouldNotPanic,
+			)
+		})
+
+		Convey("Payment provider with invalid sale data", func() {
+			So(
+				func() {
+					handler := createIpnHandler(invalidPaymentProvider)
+					handler.verifySaleDataMatch()
+				},
+				ShouldPanicWith,
+				invalidExpectedPanic,
+			)
+		})
+	})
+}
+
+func DoTestVerifyMerchantDataMatch(t *testing.T, validPaymentProvider, invalidPaymentProvider IPaymentProvider, invalidExpectedPanic interface{}) {
+	Convey("verifySaleDataMatch", t, func() {
+		Convey("Payment provider with valid Merchant ID", func() {
+			So(
+				func() {
+					handler := createIpnHandler(validPaymentProvider)
+					handler.verifyMerchantData()
+				},
+				ShouldNotPanic,
+			)
+		})
+		Convey("Payment provider with invalid Merchant ID", func() {
+			So(
+				func() {
+					handler := createIpnHandler(invalidPaymentProvider)
+					handler.verifyMerchantData()
+				},
+				ShouldPanicWith,
+				invalidExpectedPanic,
+			)
+		})
+	})
+}
+
+func DoTestVerifyFromGatewayTheySentTheRequest(t *testing.T, remoteUserAgent string, validPaymentProvider, invalidPaymentProvider IPaymentProvider, invalidExpectedPanic interface{}) {
+	Convey("verifySaleDataMatch", t, func() {
+		Convey("Payment provider returning valid from provider", func() {
+			So(
+				func() {
+					handler := createIpnHandler(validPaymentProvider)
+					handler.verifyFromGatewayTheySentTheRequest(remoteUserAgent)
+				},
+				ShouldNotPanic,
+			)
+		})
+		Convey("Payment provider failing to return valid from provider", func() {
+			So(
+				func() {
+					handler := createIpnHandler(invalidPaymentProvider)
+					handler.verifyFromGatewayTheySentTheRequest(remoteUserAgent)
+				},
+				ShouldPanicWith,
+				invalidExpectedPanic,
+			)
+		})
 	})
 }
