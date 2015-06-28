@@ -26,7 +26,7 @@ func CreatePayfastUIConfig(payfastContext *PayfastContext, sale ISale, authConte
 			&keyValPair{Key: "name_first", Value: authContext.FirstName},
 			&keyValPair{Key: "name_last", Value: authContext.LastName},
 			&keyValPair{Key: "email_address", Value: authContext.Email},
-			&keyValPair{Key: "m_payment_id", Value: fmt.Sprintf("%d", sale.GetId())},
+			&keyValPair{Key: "m_payment_id", Value: fmt.Sprintf("%s", sale.GetId())},
 			&keyValPair{Key: "amount", Value: fmt.Sprintf("%.2f", sale.GetAmountGross())},
 			&keyValPair{Key: "item_name", Value: sale.GetItemName()},
 			&keyValPair{Key: "item_description", Value: sale.GetItemDescription()},
