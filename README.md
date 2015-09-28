@@ -1,6 +1,9 @@
 # go-payment-providers
 Payment providers for golang
 
+# Travis build
+[![Build Status](https://travis-ci.org/francoishill/go-payment-providers.svg?branch=master)](https://travis-ci.org/francoishill/go-payment-providers)
+
 ## Goals
 - Have a generic platform to handle payment provider ITN (instant transaction code), including:
   + Verify data (using signatures)
