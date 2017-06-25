@@ -5,18 +5,18 @@ Payment providers for golang
 [![Build Status](https://travis-ci.org/francoishill/go-payment-providers.svg?branch=master)](https://travis-ci.org/francoishill/go-payment-providers)
 
 ## Goals
-- Have a generic platform to handle payment provider ITN (instant transaction code), including:
+
+- Have a generic platform to handle payment provider ITN (instant transaction notification), including:
   + Verify data (using signatures)
   + Verify IP address
   + Verify sale data
   + Verify merchant data
   + Ask provider if they sent the request
   + Check if the sale was not already processed
-  + Insert a new "Sale" entry (into db)
 - Have support for multiple payment providers, including:
-  + Paypal
-  + Payfast
-  + 2Checkout
+  + [ ] Paypal
+  + [x] Payfast
+  + [ ] 2Checkout
   + More...
 - Other additional "helper" packages for simplifying payment workflows
 

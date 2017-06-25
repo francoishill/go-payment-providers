@@ -1,4 +1,4 @@
-package gopp
+package payfast
 
 import (
 	"fmt"
@@ -6,32 +6,32 @@ import (
 	"strings"
 )
 
-type PostKeyValue struct {
+type postKeyValue struct {
 	Key   string
-	Value ValueString
+	Value string
 }
 
-func readKeyValuePairsInCorrectOrderFromPostBody(requestPostBody []byte) SliceOfPostKeyValue {
-	finalKeyVals := []*PostKeyValue{}
+func readOrderedKeyValuePairsFromPostBody(requestPostBody []byte) postKeyValueSlice {
+	finalKeyVals := []*postKeyValue{}
 
 	requestBodyString := string(requestPostBody)
 	keyValPairs := strings.Split(requestBodyString, "&")
 	for _, keyAndVal := range keyValPairs {
 		tmpSplit := strings.Split(keyAndVal, "=")
-		finalKeyVals = append(finalKeyVals, &PostKeyValue{
+		finalKeyVals = append(finalKeyVals, &postKeyValue{
 			Key:   tmpSplit[0],
-			Value: ValueString(tmpSplit[1]),
+			Value: strings.TrimSpace(tmpSplit[1]),
 		})
 	}
 
-	return SliceOfPostKeyValue(finalKeyVals)
+	return postKeyValueSlice(finalKeyVals)
 }
 
-type SliceOfPostKeyValue []*PostKeyValue
+type postKeyValueSlice []*postKeyValue
 
-func (this SliceOfPostKeyValue) CombineIntoSingleString(mustEscape bool) string {
+func (p postKeyValueSlice) Combine(mustEscape bool) string {
 	keyValCombinedList := []string{}
-	for _, keyVal := range this {
+	for _, keyVal := range p {
 		var value string
 		if mustEscape {
 			value = url.QueryEscape(string(keyVal.Value))

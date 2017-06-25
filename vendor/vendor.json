@@ -1,0 +1,19 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "SMbqcUkygYzNKpEVqoxeHbCWlqU=",
+			"path": "github.com/gogits/gogs/pkg/httplib",
+			"revision": "6ea9642d6415073c6312c80bf6533a5070630ad2",
+			"revisionTime": "2017-04-07T22:46:03Z"
+		},
+		{
+			"checksumSHA1": "mR79ABWFyrDTTdhFPxwUN19T45Q=",
+			"path": "github.com/pkg/errors",
+			"revision": "c605e284fe17294bda444b34710735b29d1a9d90",
+			"revisionTime": "2017-05-05T04:36:39Z"
+		}
+	],
+	"rootPath": "github.com/francoishill/go-payment-providers"
+}
