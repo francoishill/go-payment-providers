@@ -3,6 +3,8 @@ package payfast
 import (
 	"crypto/md5"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
 	"net"
 	"strconv"
@@ -13,40 +15,57 @@ import (
 )
 
 var (
-	errSaleAlreadyAuthorized = errors.New("Sale is already authorized")
+	errSaleAlreadyProcessed = errors.New("Sale is already processed")
 )
 
 //VerifyITNRequest verifies an Instant Transaction Notification
-func VerifyITNRequest(config *Config, remoteIP, remoteUserAgent string, requestPostBody []byte, sale ITNSale) (PaymentStatus, error) {
-	if err := verifyValidIPOfRequest(remoteIP); err != nil {
+func VerifyITNRequest(config *Config, remoteIP, remoteUserAgent string, bodyReader io.Reader, saleProvider SaleProvider) (PaymentStatus, error) {
+	verifications := &itnVerifications{
+		config:          config,
+		remoteIP:        remoteIP,
+		remoteUserAgent: remoteUserAgent,
+		bodyReader:      bodyReader,
+		saleProvider:    saleProvider,
+	}
+
+	if err := verifications.verifyValidIPOfRequest(); err != nil {
 		return "", errors.Wrap(err, "Failed to verify valid request")
 	}
 
-	verifiedResult, err := verifySignatureOfPostData(config, requestPostBody, remoteIP)
-	if err != nil {
+	if err := verifications.verifySignatureOfPostData(); err != nil {
 		return "", errors.Wrap(err, "Failed to verify signature of post")
 	}
 
-	if err := verifySaleDataMatch(verifiedResult, sale); err != nil {
+	if err := verifications.verifySaleDataMatch(); err != nil {
 		return "", errors.Wrap(err, "Failed to verify sale data match")
 	}
 
-	if err := verifyMerchantID(config, verifiedResult); err != nil {
+	if err := verifications.verifyMerchantID(); err != nil {
 		return "", errors.Wrap(err, "Failed to verify merchant data match")
 	}
 
-	if err := verifyFromGatewayTheySentTheRequest(config, verifiedResult, remoteUserAgent); err != nil {
+	if err := verifications.verifyFromGatewayTheySentTheRequest(); err != nil {
 		return "", errors.Wrap(err, "Failed to verify that Payfast sent the request")
 	}
 
-	if sale.AlreadyAuthorized() {
-		return "", errSaleAlreadyAuthorized
+	if verifications.verifiedRequest.ActualSale.AlreadyProcessed() {
+		return "", errSaleAlreadyProcessed
 	}
 
-	return verifiedResult.PaymentStatus, nil
+	return verifications.verifiedRequest.PaymentStatus, nil
 }
 
-func verifyValidIPOfRequest(remoteIP string) error {
+type itnVerifications struct {
+	config          *Config
+	remoteIP        string
+	remoteUserAgent string
+	bodyReader      io.Reader
+	saleProvider    SaleProvider
+
+	verifiedRequest *verifiedRequest
+}
+
+func (i *itnVerifications) verifyValidIPOfRequest() error {
 	validHostNames := ValidHostNames
 
 	validIPaddresses := []string{}
@@ -62,31 +81,37 @@ func verifyValidIPOfRequest(remoteIP string) error {
 
 	ipIsValid := false
 	for _, validIP := range validIPaddresses {
-		if remoteIP == validIP {
+		if i.remoteIP == validIP {
 			ipIsValid = true
 			break
 		}
 	}
 	if !ipIsValid {
-		return errors.New(fmt.Sprintf("Invalid remote IP '%s'", remoteIP))
+		return fmt.Errorf("Invalid remote IP '%s'", i.remoteIP)
 	}
 
 	return nil
 }
 
-func verifySignatureOfPostData(config *Config, requestPostBody []byte, remoteIP string) (*verifySignatureResult, error) {
-	postDataInCorrectOrder := readOrderedKeyValuePairsFromPostBody(requestPostBody)
+func (i *itnVerifications) verifySignatureOfPostData() error {
+	bodyBytes, err := ioutil.ReadAll(i.bodyReader)
+	if err != nil {
+		return errors.Wrap(err, "failed to read body bytes")
+	}
+	postDataInCorrectOrder := readOrderedKeyValuePairsFromPostBody(bodyBytes)
 
-	var saleID string
-	var merchantID string
-	var payfastPaymentID string
-	var paymentStatus string
-	var buyerEmailAddress string
-	var firstName string
-	var lastName string
-	var amountGross float64
-	var amountFee float64
-	var amountNet float64
+	var (
+		saleID            string
+		merchantID        string
+		payfastPaymentID  string
+		paymentStatus     string
+		buyerEmailAddress string
+		firstName         string
+		lastName          string
+		amountGross       float64
+		amountFee         float64
+		amountNet         float64
+	)
 
 	itnDataLogStr := ""
 	for ind, keyVal := range postDataInCorrectOrder {
@@ -131,31 +156,39 @@ func verifySignatureOfPostData(config *Config, requestPostBody []byte, remoteIP 
 		if keyLowerCase == "amount_gross" {
 			floatVal, err := strconv.ParseFloat(keyVal.Value, 64)
 			if err != nil {
-				return nil, errors.Wrapf(err, "Failed to parse amount_gross '%s' as float", keyVal.Value)
+				return errors.Wrapf(err, "Failed to parse amount_gross '%s' as float", keyVal.Value)
 			}
 			amountGross = floatVal
 		}
 		if keyLowerCase == "amount_fee" {
 			floatVal, err := strconv.ParseFloat(keyVal.Value, 64)
 			if err != nil {
-				return nil, errors.Wrapf(err, "Failed to parse amount_fee '%s' as float", keyVal.Value)
+				return errors.Wrapf(err, "Failed to parse amount_fee '%s' as float", keyVal.Value)
 			}
 			amountFee = floatVal
 		}
 		if keyLowerCase == "amount_net" {
 			floatVal, err := strconv.ParseFloat(keyVal.Value, 64)
 			if err != nil {
-				return nil, errors.Wrapf(err, "Failed to parse amount_net '%s' as float", keyVal.Value)
+				return errors.Wrapf(err, "Failed to parse amount_net '%s' as float", keyVal.Value)
 			}
 			amountNet = floatVal
 		}
 		keyValsExcludingSignature = append(keyValsExcludingSignature, keyVal)
 	}
 
+	//TODO: add to avoid golang compile errors (unused variables)
+	payfastPaymentID = payfastPaymentID
+	buyerEmailAddress = buyerEmailAddress
+	firstName = firstName
+	lastName = lastName
+	amountFee = amountFee
+	amountNet = amountNet
+
 	//Before we add the passphrase
 	queryWithoutPassphraseOrSignature := keyValsExcludingSignature.Combine(false)
 
-	passPhrase := config.GetPassphrase()
+	passPhrase := i.config.GetPassphrase()
 	if passPhrase != "" {
 		keyValsExcludingSignature = append(keyValsExcludingSignature, &postKeyValue{Key: "passphrase", Value: passPhrase})
 	}
@@ -163,37 +196,28 @@ func verifySignatureOfPostData(config *Config, requestPostBody []byte, remoteIP 
 	tmpReceivedQueryString := keyValsExcludingSignature.Combine(false)
 	expectedSignature := fmt.Sprintf("%x", md5.Sum([]byte(tmpReceivedQueryString)))
 	if expectedSignature != receivedSignature {
-		return nil, errors.New("Invalid Signature")
+		return errors.New("Invalid Signature")
 	}
 
-	//TODO: fix unused
-	tmp := map[string]interface{}{
-		"SaleID":                     saleID,
-		"MerchantID":                 merchantID,
-		"PayfastPaymentID":           payfastPaymentID,
-		"PaymentStatus":              paymentStatus,
-		"BuyerEmailAddress":          buyerEmailAddress,
-		"FirstName":                  firstName,
-		"LastName":                   lastName,
-		"AmountGross":                amountGross,
-		"AmountFee":                  amountFee,
-		"AmountNet":                  amountNet,
-		"ParamStringForRemoteVerify": queryWithoutPassphraseOrSignature, ////This string should be all key-val pairs except signature and passphrase
+	sale, err := i.saleProvider.GetByID(saleID)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to get Sale (from Provider) by ID '%s'", saleID)
 	}
-	tmp = tmp
 
-	result := &verifySignatureResult{
+	i.verifiedRequest = &verifiedRequest{
 		ParamStringForRemoteVerify: queryWithoutPassphraseOrSignature,
+		MerchantID:                 merchantID,
 		AmountGross:                amountGross,
 		PaymentStatus:              PaymentStatus(paymentStatus),
+		ActualSale:                 sale,
 	}
 
-	return result, nil
+	return nil
 }
 
-func verifySaleDataMatch(verifyResult *verifySignatureResult, sale ITNSale) error {
-	saleAmountGross := sale.AmountGross()
-	requestAmountGross := verifyResult.AmountGross
+func (i *itnVerifications) verifySaleDataMatch() error {
+	saleAmountGross := i.verifiedRequest.ActualSale.AmountGross()
+	requestAmountGross := i.verifiedRequest.AmountGross
 
 	diffAbs := math.Abs(saleAmountGross - requestAmountGross)
 
@@ -207,25 +231,25 @@ func verifySaleDataMatch(verifyResult *verifySignatureResult, sale ITNSale) erro
 		return nil
 	}
 
-	return errors.New("Gross amount does not match the sale amount")
+	return fmt.Errorf("Gross amount (%v) does not match the sale amount (%v)", requestAmountGross, saleAmountGross)
 }
 
-func verifyMerchantID(config *Config, verifyResult *verifySignatureResult) error {
-	if config.GetMerchantID() != verifyResult.MerchantID {
-		return errors.New("Invalid merchant ID")
+func (i *itnVerifications) verifyMerchantID() error {
+	if i.config.GetMerchantID() != i.verifiedRequest.MerchantID {
+		return fmt.Errorf("Merchant ID (%s) is not valid", i.verifiedRequest.MerchantID)
 	}
 	return nil
 }
 
-func verifyFromGatewayTheySentTheRequest(config *Config, verifiedResult *verifySignatureResult, remoteUserAgent string) error {
-	host := config.GetRemoteHost()
+func (i *itnVerifications) verifyFromGatewayTheySentTheRequest() error {
+	host := i.config.GetRemoteHost()
 	url := fmt.Sprintf("https://%s/eng/query/validate", host)
 
-	postBodyBytes := []byte(verifiedResult.ParamStringForRemoteVerify)
+	postBodyBytes := []byte(i.verifiedRequest.ParamStringForRemoteVerify)
 
 	request := httplib.Post(url).
 		Header("Host", host).
-		SetUserAgent(remoteUserAgent).
+		SetUserAgent(i.remoteUserAgent).
 		Header("Content-Type", "application/x-www-form-urlencoded").
 		Header("Content-Length", fmt.Sprintf("%d", len(postBodyBytes))).
 		Body(postBodyBytes)
