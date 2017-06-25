@@ -1,4 +1,4 @@
-package main
+package helpers
 
 import (
 	"bytes"
@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-func getIPAdress(r *http.Request) string {
+//GetRequestIPAddress gets the IP address from a request
+func GetRequestIPAddress(r *http.Request) string {
 	for _, h := range []string{"X-Forwarded-For", "X-Real-Ip"} {
 		addresses := strings.Split(r.Header.Get(h), ",")
 		// march from right to left until we get a public address
